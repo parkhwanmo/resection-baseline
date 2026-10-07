@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f5f8b">
+<title>좌표 거리·방위각</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<!--STYLE-->
+</head>
+<body>
+<header class="bar"><h1>좌표 거리·방위각</h1><button id="clear" type="button">지우기</button></header>
+<main>
+  <div id="banner"></div>
+  <section class="card">
+    <h2>점 A</h2>
+    <div class="grid2">
+      <label class="field"><span>X (북)</span><input id="xa" inputmode="decimal" autocomplete="off"></label>
+      <label class="field"><span>Y (동)</span><input id="ya" inputmode="decimal" autocomplete="off"></label>
+    </div>
+  </section>
+  <section class="card">
+    <h2>점 B</h2>
+    <div class="grid2">
+      <label class="field"><span>X (북)</span><input id="xb" inputmode="decimal" autocomplete="off"></label>
+      <label class="field"><span>Y (동)</span><input id="yb" inputmode="decimal" autocomplete="off"></label>
+    </div>
+  </section>
+  <section class="card result" aria-live="polite">
+    <div class="res"><span>거리</span><b id="dist">—</b></div>
+    <div class="res"><span>방위각 <small>(A→B)</small></span><b id="az">—</b></div>
+    <p class="hint" id="msg">A, B 좌표를 입력하세요</p>
+  </section>
+  <p class="hint foot">X = 북, Y = 동 · 방위각은 북에서 시계 방향 · <a href="../">후방교회 기선 거리(v1)</a></p>
+</main>
+<!--SCRIPT-->
+</body>
+</html>

@@ -4,7 +4,16 @@
 S1–S2 거리(수평거리·사거리·고저차)와 상대 좌표를 계산하는 오프라인 모바일 웹앱입니다.
 측량기 화면의 값을 손으로 입력합니다.
 
-## 사용 순서
+| 앱 | 주소 | 하는 일 |
+|---|---|---|
+| v1 후방교회 기선 거리 | https://parkhwanmo.github.io/resection-baseline/ | 미지점 S1·S2 관측값 → 기선 거리·잔차·상대 좌표 |
+| v2 좌표 거리·방위각 | https://parkhwanmo.github.io/resection-baseline/v2/ | 알고 있는 두 점 좌표 → 거리·방위각 |
+
+## v2 좌표 거리·방위각
+- 점 A, B의 X(북)·Y(동)를 넣으면 A→B 수평거리(m, 소수 3자리)와 방위각(북에서 시계 방향, 1″ 단위)이 바로 나옵니다.
+- 입력은 자동 저장되고 `지우기`로 비웁니다. 홈 화면에 따로 설치할 수 있습니다.
+
+## v1 사용 순서
 
 1. **새 작업**을 만듭니다.
 2. **S1 탭**: 기계고를 입력하고, 공통점 관측값을 `+ 관측값`으로 입력합니다(사거리, 수평각, 천정각, 프리즘고). `저장 후 다음 점`으로 연속 입력합니다.
@@ -34,9 +43,10 @@ S1–S2 거리(수평거리·사거리·고저차)와 상대 좌표를 계산하
 ## 개발
 ```
 npm test        # 계산·저장 테스트 (node:test)
-npm run build   # src → dist (단일 index.html + manifest + 서비스워커 + 아이콘)
+npm run build   # src → dist/ (v1), dist/v2/ (v2) — 각각 단일 index.html + manifest + 서비스워커 + 아이콘
 ```
 - `src/calc.js`: 계산(각도 해석, 로컬 좌표, 2D 강체 최소제곱 정합, 상대 좌표, 판정)
 - `src/store.js`: 저장·백업·CSV
 - `src/app.js`: 화면
+- `src/v2/inverse.js`, `src/v2/app.js`: v2 좌표 역계산
 - 설계: `docs/superpowers/specs/2026-10-07-resection-baseline-design.md`

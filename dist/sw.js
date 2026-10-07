@@ -1,5 +1,6 @@
-// 오프라인 캐시 (캐시 우선)
-const CACHE = 'rb-e209aadf';
+// 오프라인 캐시 (캐시 우선). 같은 사이트의 다른 앱 캐시는 건드리지 않도록 앱별 접두어 사용
+const PREFIX = 'rb-';
+const CACHE = PREFIX + '9cb96fd6';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', (e) => {
@@ -11,11 +12,13 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+    .then(keys => Promise.all(keys.filter(k => k.startsWith(PREFIX) && k !== CACHE).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(hit => hit || fetch(e.request)));
+  e.respondWith(caches.open(CACHE)
+    .then(c => c.match(e.request, { ignoreSearch: true }))
+    .then(hit => hit || fetch(e.request)));
 });
