@@ -48,3 +48,43 @@ export function parseAngle(str, unit) {
   const v = Number(s);
   return { ok: true, rad: unit === 'gon' ? v * Math.PI / 200 : v * DEG };
 }
+
+function num(str, label, optional = false) {
+  const r = parseNum(str, { optional });
+  if (!r.ok) throw new Error(`${label}: ${r.error}`);
+  return r.v;
+}
+
+function ang(str, unit, label) {
+  const r = parseAngle(str, unit);
+  if (!r.ok) throw new Error(`${label}: ${r.error}`);
+  return r.rad;
+}
+
+// 기계점 지면 표지 원점, x=E(수평각 90°), y=N(수평각 0°), z=위
+export function localPoint(obs, station, settings) {
+  try {
+    if (obs.mode === 'coord') {
+      return {
+        ok: true,
+        x: num(obs.e, 'E') - num(station.e0, 'E0', true),
+        y: num(obs.n, 'N') - num(station.n0, 'N0', true),
+        z: num(obs.z, 'Z') - num(station.z0, 'Z0', true),
+      };
+    }
+    const sd = num(obs.sd, '사거리');
+    let ha = ang(obs.ha, settings.angleUnit, '수평각');
+    let za = ang(obs.va, settings.angleUnit, '연직각');
+    if (settings.vAngle === 'elevation') za = Math.PI / 2 - za;
+    if (za > Math.PI) { za = 2 * Math.PI - za; ha += Math.PI; }
+    const hd = sd * Math.sin(za);
+    return {
+      ok: true,
+      x: hd * Math.sin(ha),
+      y: hd * Math.cos(ha),
+      z: sd * Math.cos(za) + num(station.hi, '기계고', true) - num(obs.ht, '프리즘고', true),
+    };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
