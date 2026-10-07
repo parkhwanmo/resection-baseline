@@ -1,7 +1,7 @@
 // 오프라인 캐시 (캐시 우선). 같은 사이트의 다른 앱 캐시는 건드리지 않도록 앱별 접두어 사용
 const PREFIX = 'rb-';
-const CACHE = PREFIX + '9cb96fd6';
-const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
+const CACHE = PREFIX + 'd089fe78';
+const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 
 self.addEventListener('install', (e) => {
   // HTTP 캐시를 거치지 않고 새로 받아 배포 직후에도 최신 파일을 캐시
