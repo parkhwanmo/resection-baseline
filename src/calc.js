@@ -88,3 +88,127 @@ export function localPoint(obs, station, settings) {
     return { ok: false, error: e.message };
   }
 }
+
+// b ≈ R(theta)·a + t 최소제곱 (축척 1)
+export function fitRigid2D(pairs) {
+  const n = pairs.length;
+  let ax = 0, ay = 0, bx = 0, by = 0;
+  for (const { a, b } of pairs) { ax += a.x; ay += a.y; bx += b.x; by += b.y; }
+  ax /= n; ay /= n; bx /= n; by /= n;
+  let sn = 0, cs = 0;
+  for (const { a, b } of pairs) {
+    const px = a.x - ax, py = a.y - ay, qx = b.x - bx, qy = b.y - by;
+    sn += px * qy - py * qx;
+    cs += px * qx + py * qy;
+  }
+  const theta = Math.atan2(sn, cs);
+  const c = Math.cos(theta), s = Math.sin(theta);
+  return { theta, tx: bx - (c * ax - s * ay), ty: by - (s * ax + c * ay) };
+}
+
+const NARROW_SPAN = 0.5;
+
+function stationPoints(station, settings) {
+  const list = station.obs.map(o => {
+    const p = localPoint(o, station, settings);
+    return { id: o.id, name: o.name, key: normName(o.name), ok: p.ok, error: p.ok ? null : p.error, dup: false, p };
+  });
+  const map = new Map();
+  for (const it of list) {
+    if (!it.ok || !it.key) continue;
+    if (map.has(it.key)) map.get(it.key).dup = true;
+    map.set(it.key, it);
+  }
+  return { list, map };
+}
+
+export function solve(job) {
+  const settings = job.settings;
+  const tolH = Number(settings.tolH), tolV = Number(settings.tolV);
+  const s1 = stationPoints(job.stations.S1, settings);
+  const s2 = stationPoints(job.stations.S2, settings);
+  const perStation = {
+    S1: s1.list.map(({ id, name, ok, error, dup }) => ({ id, name, ok, error, dup })),
+    S2: s2.list.map(({ id, name, ok, error, dup }) => ({ id, name, ok, error, dup })),
+  };
+  const excluded = new Set((job.excluded || []).map(normName));
+  const commonKeys = [...s1.map.keys()].filter(k => s2.map.has(k));
+  const activeKeys = commonKeys.filter(k => !excluded.has(k));
+  const messages = [];
+
+  if (activeKeys.length < 2) {
+    messages.push({ level: 'error', code: 'NOT_ENOUGH_COMMON',
+      text: '계산 불가 — S1과 S2에서 같은 이름으로 2점 이상 관측 필요' });
+    return {
+      status: 'fail', messages, baseline: null,
+      common: commonKeys.map(k => ({ name: s1.map.get(k).name.trim(), excluded: excluded.has(k), rh: null, rv: null, over: false })),
+      rmsH: null, rmsV: null, worst: null, points: [], perStation,
+    };
+  }
+
+  const fit = fitRigid2D(activeKeys.map(k => ({ a: s2.map.get(k).p, b: s1.map.get(k).p })));
+  const tz = activeKeys.reduce((s, k) => s + s1.map.get(k).p.z - s2.map.get(k).p.z, 0) / activeKeys.length;
+  const c = Math.cos(fit.theta), sn = Math.sin(fit.theta);
+  const toS1 = (p) => ({ x: c * p.x - sn * p.y + fit.tx, y: sn * p.x + c * p.y + fit.ty, z: p.z + tz });
+
+  const common = commonKeys.map(k => {
+    const name = s1.map.get(k).name.trim();
+    if (excluded.has(k)) return { name, excluded: true, rh: null, rv: null, over: false };
+    const a = s1.map.get(k).p, b = toS1(s2.map.get(k).p);
+    const rh = Math.hypot(a.x - b.x, a.y - b.y), rv = a.z - b.z;
+    return { name, excluded: false, rh, rv, over: rh > tolH || Math.abs(rv) > tolV };
+  });
+  const active = common.filter(r => !r.excluded);
+  const rmsH = Math.sqrt(active.reduce((s, r) => s + r.rh ** 2, 0) / active.length);
+  const rmsV = Math.sqrt(active.reduce((s, r) => s + r.rv ** 2, 0) / active.length);
+  const overs = active.filter(r => r.over);
+  const worst = overs.length ? overs.reduce((m, r) => (r.rh > m.rh ? r : m)).name : null;
+
+  if (activeKeys.length === 2)
+    messages.push({ level: 'warn', code: 'TWO_COMMON', text: '검증 불가 — 공통점 3점 이상 권장' });
+  let span = 0;
+  for (let i = 0; i < activeKeys.length; i++)
+    for (let j = i + 1; j < activeKeys.length; j++) {
+      const p = s1.map.get(activeKeys[i]).p, q = s1.map.get(activeKeys[j]).p;
+      span = Math.max(span, Math.hypot(p.x - q.x, p.y - q.y));
+    }
+  if (span < NARROW_SPAN)
+    messages.push({ level: 'warn', code: 'NARROW', text: '공통점 배치가 좁아 방향 오차가 큼' });
+  if (overs.length)
+    messages.push({ level: 'warn', code: 'OVER_TOL', text: `허용 잔차 초과 ${overs.length}점 — 최대: ${worst}` });
+
+  const hd = Math.hypot(fit.tx, fit.ty);
+  const baseline = { hd, dz: tz, sd: Math.hypot(hd, tz) };
+
+  // 상대 좌표 (S1 로컬 → 축 회전)
+  const raw = [
+    { name: 'S1', x: 0, y: 0, z: 0, source: 'S1' },
+    { name: 'S2', x: fit.tx, y: fit.ty, z: tz, source: 'S2' },
+  ];
+  const keys = [...new Set([...s1.map.keys(), ...s2.map.keys()])];
+  for (const k of keys) {
+    const a = s1.map.get(k), b = s2.map.get(k);
+    const ests = [];
+    if (a) ests.push(a.p);
+    if (b) ests.push(toS1(b.p));
+    raw.push({
+      name: (a || b).name.trim(),
+      x: ests.reduce((s, p) => s + p.x, 0) / ests.length,
+      y: ests.reduce((s, p) => s + p.y, 0) / ests.length,
+      z: ests.reduce((s, p) => s + p.z, 0) / ests.length,
+      source: a && b ? 'both' : a ? 'S1' : 'S2',
+    });
+  }
+  const phi = settings.axis === 'baseline' && hd > 0 ? Math.atan2(fit.ty, fit.tx) : 0;
+  const pc = Math.cos(phi), ps = Math.sin(phi);
+  const points = raw.map(p => ({
+    name: p.name, source: p.source, Z: p.z,
+    X: p.x * pc + p.y * ps,
+    Y: -p.x * ps + p.y * pc,
+  }));
+
+  return {
+    status: messages.length ? 'warn' : 'ok',
+    messages, baseline, common, rmsH, rmsV, worst, points, perStation,
+  };
+}
