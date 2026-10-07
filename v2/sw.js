@@ -1,6 +1,6 @@
 // 오프라인 캐시 (캐시 우선). 같은 사이트의 다른 앱 캐시는 건드리지 않도록 앱별 접두어 사용
-const PREFIX = 'rb-';
-const CACHE = PREFIX + '9cb96fd6';
+const PREFIX = 'rb2-';
+const CACHE = PREFIX + 'df6cef90';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', (e) => {

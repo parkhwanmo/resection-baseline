@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f5f8b">
+<title>좌표 거리·방위각</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --text: #1b2430;
+  --muted: #5d6b7a;
+  --line: #d9dfe5;
+  --accent: #1f5f8b;
+  --accent-text: #ffffff;
+  --bad: #b3261e;
+  --bad-bg: #fde7e5;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11161c;
+    --surface: #1b232c;
+    --text: #e6ebf0;
+    --muted: #97a4b2;
+    --line: #2e3a46;
+    --accent: #5aa7dc;
+    --accent-text: #0b1218;
+    --bad: #ff8a80;
+    --bad-bg: #3d1d1b;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+header.bar {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 16px; background: var(--accent); color: var(--accent-text);
+}
+header.bar h1 { flex: 1; margin: 0; font-size: 18px; font-weight: 650; }
+header.bar button {
+  font: inherit; min-height: 40px; padding: 0 14px; border-radius: 8px;
+  border: 1px solid currentColor; background: transparent; color: inherit;
+}
+main { max-width: 560px; margin: 0 auto; padding: 0 16px calc(24px + env(safe-area-inset-bottom)); }
+
+.banner { margin: 12px 0; padding: 10px 12px; border-radius: 10px; background: var(--bad-bg); color: var(--bad); font-size: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin: 12px 0; }
+.card h2 { margin: 0 0 4px; font-size: 15px; color: var(--muted); font-weight: 600; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+label.field { display: block; margin: 6px 0; }
+label.field span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+input {
+  font: inherit; font-size: 18px; width: 100%; min-height: 48px; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+input.bad { border-color: var(--bad); outline-color: var(--bad); background: var(--bad-bg); }
+
+.result .res { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 6px 0; }
+.result .res span { color: var(--muted); font-size: 15px; }
+.result .res b { font-size: 30px; font-variant-numeric: tabular-nums; letter-spacing: -.3px; color: var(--accent); }
+.result .res + .res { border-top: 1px solid var(--line); }
+.hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.hint:empty { display: none; }
+.foot { text-align: center; margin-top: 16px; }
+.foot a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header class="bar"><h1>좌표 거리·방위각</h1><button id="clear" type="button">지우기</button></header>
+<main>
+  <div id="banner"></div>
+  <section class="card">
+    <h2>점 A</h2>
+    <div class="grid2">
+      <label class="field"><span>X (북)</span><input id="xa" inputmode="decimal" autocomplete="off"></label>
+      <label class="field"><span>Y (동)</span><input id="ya" inputmode="decimal" autocomplete="off"></label>
+    </div>
+  </section>
+  <section class="card">
+    <h2>점 B</h2>
+    <div class="grid2">
+      <label class="field"><span>X (북)</span><input id="xb" inputmode="decimal" autocomplete="off"></label>
+      <label class="field"><span>Y (동)</span><input id="yb" inputmode="decimal" autocomplete="off"></label>
+    </div>
+  </section>
+  <section class="card result" aria-live="polite">
+    <div class="res"><span>거리</span><b id="dist">—</b></div>
+    <div class="res"><span>방위각 <small>(A→B)</small></span><b id="az">—</b></div>
+    <p class="hint" id="msg">A, B 좌표를 입력하세요</p>
+  </section>
+  <p class="hint foot">X = 북, Y = 동 · 방위각은 북에서 시계 방향 · <a href="../">후방교회 기선 거리(v1)</a></p>
+</main>
+<script>
+"use strict";
+// ---- calc.js ----
+// 후방교회 기선 거리 — 순수 계산 (DOM 없음)
+
+const DEG = Math.PI / 180;
+const NUM_RE = /^[+-]?(\d+\.?\d*|\.\d+)$/;
+
+function normName(s) {
+  return String(s ?? '').trim().toUpperCase();
+}
+
+function parseNum(str, { optional = false } = {}) {
+  const s = String(str ?? '').trim().replace(',', '.');
+  if (s === '') return optional ? { ok: true, v: 0 } : { ok: false, error: '값 없음' };
+  if (!NUM_RE.test(s)) return { ok: false, error: `숫자 아님: ${str}` };
+  return { ok: true, v: Number(s) };
+}
+
+function parseDms(s) {
+  let sign = 1;
+  if (s.startsWith('-')) { sign = -1; s = s.slice(1).trim(); }
+  else if (s.startsWith('+')) s = s.slice(1).trim();
+  let d, m, sec;
+  const parts = s.split(/[\s-]+/).filter(Boolean);
+  if (parts.length > 1) {
+    if (parts.length > 3 || !parts.every((p, i) => (i < 2 ? /^\d+$/ : NUM_RE).test(p))) return null;
+    [d, m = 0, sec = 0] = parts.map(Number);
+  } else {
+    if (!/^(\d+)(\.(\d*))?$/.test(s)) return null;
+    const [ip, fp = ''] = s.split('.');
+    const f = fp.padEnd(4, '0');
+    d = Number(ip);
+    m = Number(f.slice(0, 2));
+    sec = Number(f.slice(2, 4) + '.' + (f.slice(4) || '0'));
+  }
+  if (m >= 60 || sec >= 60) return { error: '분·초는 60 미만이어야 함' };
+  return { deg: sign * (d + m / 60 + sec / 3600) };
+}
+
+function parseAngle(str, unit) {
+  const s = String(str ?? '').trim().replace(',', '.');
+  if (s === '') return { ok: false, error: '각도 없음' };
+  if (unit === 'dms') {
+    const r = parseDms(s);
+    if (!r) return { ok: false, error: `각도 형식 오류: ${str}` };
+    if (r.error) return { ok: false, error: r.error };
+    return { ok: true, rad: r.deg * DEG };
+  }
+  if (!NUM_RE.test(s)) return { ok: false, error: `각도 형식 오류: ${str}` };
+  const v = Number(s);
+  return { ok: true, rad: unit === 'gon' ? v * Math.PI / 200 : v * DEG };
+}
+
+function num(str, label, optional = false) {
+  const r = parseNum(str, { optional });
+  if (!r.ok) throw new Error(`${label}: ${r.error}`);
+  return r.v;
+}
+
+function ang(str, unit, label) {
+  const r = parseAngle(str, unit);
+  if (!r.ok) throw new Error(`${label}: ${r.error}`);
+  return r.rad;
+}
+
+// 기계점 지면 표지 원점, x=E(수평각 90°), y=N(수평각 0°), z=위
+function localPoint(obs, station, settings) {
+  try {
+    if (obs.mode === 'coord') {
+      return {
+        ok: true,
+        x: num(obs.e, 'E') - num(station.e0, 'E0', true),
+        y: num(obs.n, 'N') - num(station.n0, 'N0', true),
+        z: num(obs.z, 'Z') - num(station.z0, 'Z0', true),
+      };
+    }
+    const sd = num(obs.sd, '사거리');
+    let ha = ang(obs.ha, settings.angleUnit, '수평각');
+    let za = ang(obs.va, settings.angleUnit, '연직각');
+    if (settings.vAngle === 'elevation') za = Math.PI / 2 - za;
+    if (za > Math.PI) { za = 2 * Math.PI - za; ha += Math.PI; }
+    const hd = sd * Math.sin(za);
+    return {
+      ok: true,
+      x: hd * Math.sin(ha),
+      y: hd * Math.cos(ha),
+      z: sd * Math.cos(za) + num(station.hi, '기계고', true) - num(obs.ht, '프리즘고', true),
+    };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// b ≈ R(theta)·a + t 최소제곱 (축척 1)
+function fitRigid2D(pairs) {
+  const n = pairs.length;
+  let ax = 0, ay = 0, bx = 0, by = 0;
+  for (const { a, b } of pairs) { ax += a.x; ay += a.y; bx += b.x; by += b.y; }
+  ax /= n; ay /= n; bx /= n; by /= n;
+  let sn = 0, cs = 0;
+  for (const { a, b } of pairs) {
+    const px = a.x - ax, py = a.y - ay, qx = b.x - bx, qy = b.y - by;
+    sn += px * qy - py * qx;
+    cs += px * qx + py * qy;
+  }
+  const theta = Math.atan2(sn, cs);
+  const c = Math.cos(theta), s = Math.sin(theta);
+  return { theta, tx: bx - (c * ax - s * ay), ty: by - (s * ax + c * ay) };
+}
+
+const NARROW_SPAN = 0.5;
+
+function stationPoints(station, settings) {
+  const list = station.obs.map(o => {
+    const p = localPoint(o, station, settings);
+    return { id: o.id, name: o.name, key: normName(o.name), ok: p.ok, error: p.ok ? null : p.error, dup: false, p };
+  });
+  // 같은 점명은 마지막 항목만 사용 (마지막이 오류면 그 점은 계산에서 빠짐)
+  const last = new Map();
+  for (const it of list) {
+    if (!it.key) continue;
+    if (last.has(it.key)) last.get(it.key).dup = true;
+    last.set(it.key, it);
+  }
+  const map = new Map([...last].filter(([, it]) => it.ok));
+  return { list, map };
+}
+
+// 현재 공통점에 해당하는 제외 이름만 남김 (점 삭제·이름 변경 후 정리)
+function pruneExcluded(job) {
+  const keys = (st) => new Set(st.obs.map(o => normName(o.name)).filter(Boolean));
+  const k1 = keys(job.stations.S1), k2 = keys(job.stations.S2);
+  return (job.excluded || []).filter(n => k1.has(normName(n)) && k2.has(normName(n)));
+}
+
+function solve(job) {
+  const settings = job.settings;
+  const tolH = Number(settings.tolH), tolV = Number(settings.tolV);
+  const s1 = stationPoints(job.stations.S1, settings);
+  const s2 = stationPoints(job.stations.S2, settings);
+  const perStation = {
+    S1: s1.list.map(({ id, name, ok, error, dup }) => ({ id, name, ok, error, dup })),
+    S2: s2.list.map(({ id, name, ok, error, dup }) => ({ id, name, ok, error, dup })),
+  };
+  let excluded = new Set((job.excluded || []).map(normName));
+  const commonKeys = [...s1.map.keys()].filter(k => s2.map.has(k));
+  let activeKeys = commonKeys.filter(k => !excluded.has(k));
+  const messages = [];
+
+  // 제외 때문에 2점 미만이 되면 제외를 무시 (항상 진행)
+  if (activeKeys.length < 2 && commonKeys.length >= 2) {
+    excluded = new Set();
+    activeKeys = commonKeys;
+    messages.push({ level: 'warn', code: 'EXCLUDE_IGNORED', text: '공통점이 부족해 제외 설정을 무시하고 모든 공통점으로 계산함' });
+  }
+
+  if (activeKeys.length < 2) {
+    const bad = s1.list.filter(p => !p.ok).length + s2.list.filter(p => !p.ok).length;
+    messages.push({ level: 'error', code: 'NOT_ENOUGH_COMMON',
+      text: '계산 불가 — S1과 S2에서 같은 이름으로 2점 이상 관측 필요' + (bad ? ` (입력 오류 ${bad}점은 계산에서 빠짐)` : '') });
+    return {
+      status: 'fail', messages, baseline: null,
+      common: commonKeys.map(k => ({ name: s1.map.get(k).name.trim(), excluded: excluded.has(k), rh: null, rv: null, over: false })),
+      rmsH: null, rmsV: null, worst: null, points: [], perStation,
+    };
+  }
+
+  const fit = fitRigid2D(activeKeys.map(k => ({ a: s2.map.get(k).p, b: s1.map.get(k).p })));
+  const tz = activeKeys.reduce((s, k) => s + s1.map.get(k).p.z - s2.map.get(k).p.z, 0) / activeKeys.length;
+  const c = Math.cos(fit.theta), sn = Math.sin(fit.theta);
+  const toS1 = (p) => ({ x: c * p.x - sn * p.y + fit.tx, y: sn * p.x + c * p.y + fit.ty, z: p.z + tz });
+
+  const common = commonKeys.map(k => {
+    const name = s1.map.get(k).name.trim();
+    if (excluded.has(k)) return { name, excluded: true, rh: null, rv: null, over: false };
+    const a = s1.map.get(k).p, b = toS1(s2.map.get(k).p);
+    const rh = Math.hypot(a.x - b.x, a.y - b.y), rv = a.z - b.z;
+    return { name, excluded: false, rh, rv, over: rh > tolH || Math.abs(rv) > tolV };
+  });
+  const active = common.filter(r => !r.excluded);
+  const rmsH = Math.sqrt(active.reduce((s, r) => s + r.rh ** 2, 0) / active.length);
+  const rmsV = Math.sqrt(active.reduce((s, r) => s + r.rv ** 2, 0) / active.length);
+  const overs = active.filter(r => r.over);
+  const badness = (r) => Math.max(r.rh / tolH, Math.abs(r.rv) / tolV);
+  const worst = overs.length ? overs.reduce((m, r) => (badness(r) > badness(m) ? r : m)).name : null;
+
+  if (activeKeys.length === 2)
+    messages.push({ level: 'warn', code: 'TWO_COMMON', text: '검증 불가 — 공통점 3점 이상 권장' });
+  let span = 0;
+  for (let i = 0; i < activeKeys.length; i++)
+    for (let j = i + 1; j < activeKeys.length; j++) {
+      const p = s1.map.get(activeKeys[i]).p, q = s1.map.get(activeKeys[j]).p;
+      span = Math.max(span, Math.hypot(p.x - q.x, p.y - q.y));
+    }
+  if (span < NARROW_SPAN)
+    messages.push({ level: 'warn', code: 'NARROW', text: '공통점 배치가 좁아 방향 오차가 큼' });
+  if (overs.length)
+    messages.push({ level: 'warn', code: 'OVER_TOL', text: `허용 잔차 초과 ${overs.length}점 — 최대: ${worst}` });
+
+  const hd = Math.hypot(fit.tx, fit.ty);
+  const baseline = { hd, dz: tz, sd: Math.hypot(hd, tz) };
+
+  // 상대 좌표 (S1 로컬 → 축 회전)
+  const raw = [
+    { name: 'S1', x: 0, y: 0, z: 0, source: 'S1' },
+    { name: 'S2', x: fit.tx, y: fit.ty, z: tz, source: 'S2' },
+  ];
+  const keys = [...new Set([...s1.map.keys(), ...s2.map.keys()])];
+  for (const k of keys) {
+    const a = s1.map.get(k), b = s2.map.get(k);
+    const ests = [];
+    if (a) ests.push(a.p);
+    if (b) ests.push(toS1(b.p));
+    raw.push({
+      name: (a || b).name.trim(),
+      x: ests.reduce((s, p) => s + p.x, 0) / ests.length,
+      y: ests.reduce((s, p) => s + p.y, 0) / ests.length,
+      z: ests.reduce((s, p) => s + p.z, 0) / ests.length,
+      source: a && b ? 'both' : a ? 'S1' : 'S2',
+    });
+  }
+  const phi = settings.axis === 'baseline' && hd > 0 ? Math.atan2(fit.ty, fit.tx) : 0;
+  const pc = Math.cos(phi), ps = Math.sin(phi);
+  const points = raw.map(p => ({
+    name: p.name, source: p.source, Z: p.z,
+    X: p.x * pc + p.y * ps,
+    Y: -p.x * ps + p.y * pc,
+  }));
+
+  return {
+    status: messages.length ? 'warn' : 'ok',
+    messages, baseline, common, rmsH, rmsV, worst, points, perStation,
+  };
+}
+
+// ---- v2/inverse.js ----
+// v2 — 두 점 좌표 역계산 (X=북, Y=동, 방위각은 북에서 시계 방향)
+
+const V2_KEY = 'rb.v2.state';
+const V2_FIELDS = ['xa', 'ya', 'xb', 'yb'];
+
+function inverse(a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist === 0) return { dist: 0, az: null };
+  let az = Math.atan2(dy, dx) * 180 / Math.PI;
+  if (az < 0) az += 360;
+  return { dist, az };
+}
+
+// 1″ 단위 반올림, 360° → 0°
+function formatDms(deg) {
+  let total = Math.round(deg * 3600) % (360 * 3600);
+  if (total < 0) total += 360 * 3600;
+  const d = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return `${d}°${String(m).padStart(2, '0')}′${String(s).padStart(2, '0')}″`;
+}
+
+function emptyState() {
+  return { version: 1, xa: '', ya: '', xb: '', yb: '' };
+}
+
+// 네 칸이 모두 유효하면 ok, 아니면 형식이 틀린 칸 목록 (빈 칸은 제외)
+function parseState(state) {
+  const vals = {}, bad = [];
+  for (const k of V2_FIELDS) {
+    const raw = String(state[k] ?? '').trim();
+    if (raw === '') continue;
+    const r = parseNum(raw);
+    if (r.ok) vals[k] = r.v; else bad.push(k);
+  }
+  if (bad.length || Object.keys(vals).length < V2_FIELDS.length) return { ok: false, bad };
+  return { ok: true, a: { x: vals.xa, y: vals.ya }, b: { x: vals.xb, y: vals.yb } };
+}
+
+function loadState(storage) {
+  try {
+    const data = JSON.parse(storage.getItem(V2_KEY));
+    if (data === null || typeof data !== 'object' || Array.isArray(data)) return emptyState();
+    const s = emptyState();
+    for (const k of V2_FIELDS) {
+      const v = data[k];
+      s[k] = v == null || typeof v === 'object' ? '' : String(v);
+    }
+    return s;
+  } catch {
+    return emptyState();
+  }
+}
+
+function saveState(storage, state) {
+  try {
+    storage.setItem(V2_KEY, JSON.stringify(state));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ---- v2/app.js ----
+// v2 화면 — 입력 칸은 고정, 결과·칸 상태만 갱신
+
+const v2Storage = {
+  getItem(k) { return window.localStorage.getItem(k); },
+  setItem(k, v) { window.localStorage.setItem(k, v); },
+};
+const V2_INPUTS = ['xa', 'ya', 'xb', 'yb'];
+let v2State = loadState(v2Storage);
+const byId = (id) => document.getElementById(id);
+
+function showResult() {
+  const r = parseState(v2State);
+  for (const k of V2_INPUTS) byId(k).classList.toggle('bad', !r.ok && r.bad.includes(k));
+  if (!r.ok) {
+    byId('dist').textContent = '—';
+    byId('az').textContent = '—';
+    byId('msg').textContent = r.bad.length ? '빨간 칸의 숫자 형식을 확인하세요' : 'A, B 좌표를 입력하세요';
+    return;
+  }
+  const { dist, az } = inverse(r.a, r.b);
+  byId('dist').textContent = `${dist.toFixed(3)} m`;
+  byId('az').textContent = az == null ? '—' : formatDms(az);
+  byId('msg').textContent = az == null ? 'A와 B가 같은 점입니다' : '';
+}
+
+function persistV2() {
+  const ok = saveState(v2Storage, v2State);
+  byId('banner').innerHTML = ok ? '' : '<div class="banner">이 브라우저에 저장할 수 없어 새로고침하면 입력이 사라집니다.</div>';
+}
+
+for (const k of V2_INPUTS) {
+  const el = byId(k);
+  el.value = v2State[k];
+  el.addEventListener('input', () => { v2State[k] = el.value; persistV2(); showResult(); });
+}
+
+byId('clear').addEventListener('click', () => {
+  if (V2_INPUTS.some(k => v2State[k].trim()) && !confirm('입력한 좌표를 모두 지울까요?')) return;
+  v2State = emptyState();
+  for (const k of V2_INPUTS) byId(k).value = '';
+  persistV2(); showResult();
+  byId('xa').focus();
+});
+
+showResult();
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+</script>
+</body>
+</html>
