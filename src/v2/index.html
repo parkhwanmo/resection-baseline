@@ -13,6 +13,10 @@
 <header class="bar"><h1>좌표 거리·방위각</h1><button id="clear" type="button">지우기</button></header>
 <main>
   <div id="banner"></div>
+  <div class="seg" role="group" aria-label="계산 종류">
+    <button type="button" data-mode="inverse" aria-pressed="true">거리·방위각 구하기</button>
+    <button type="button" data-mode="forward" aria-pressed="false">B 좌표 구하기</button>
+  </div>
   <section class="card">
     <h2>점 A</h2>
     <div class="grid2">
@@ -20,17 +24,30 @@
       <label class="field"><span>Y (동)</span><input id="ya" inputmode="decimal" autocomplete="off"></label>
     </div>
   </section>
-  <section class="card">
+  <section class="card" data-show="inverse">
     <h2>점 B</h2>
     <div class="grid2">
       <label class="field"><span>X (북)</span><input id="xb" inputmode="decimal" autocomplete="off"></label>
       <label class="field"><span>Y (동)</span><input id="yb" inputmode="decimal" autocomplete="off"></label>
     </div>
   </section>
+  <section class="card" data-show="forward" hidden>
+    <h2>A → B</h2>
+    <div class="grid2">
+      <label class="field"><span>거리 (m)</span><input id="dist" inputmode="decimal" autocomplete="off"></label>
+      <label class="field"><span>방위각 (ddd.mmss)</span><input id="az" inputmode="decimal" autocomplete="off"></label>
+    </div>
+  </section>
   <section class="card result" aria-live="polite">
-    <div class="res"><span>거리</span><b id="dist">—</b></div>
-    <div class="res"><span>방위각 <small>(A→B)</small></span><b id="az">—</b></div>
-    <p class="hint" id="msg">A, B 좌표를 입력하세요</p>
+    <div data-show="inverse">
+      <div class="res"><span>거리</span><b id="out-dist">—</b></div>
+      <div class="res"><span>방위각 <small>(A→B)</small></span><b id="out-az">—</b></div>
+    </div>
+    <div data-show="forward" hidden>
+      <div class="res"><span>B &nbsp;X (북)</span><b id="out-xb">—</b></div>
+      <div class="res"><span>B &nbsp;Y (동)</span><b id="out-yb">—</b></div>
+    </div>
+    <p class="hint" id="msg"></p>
   </section>
   <p class="hint foot">X = 북, Y = 동 · 방위각은 북에서 시계 방향 · <a href="../">후방교회 기선 거리(v1)</a></p>
 </main>

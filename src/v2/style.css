@@ -67,3 +67,8 @@ input.bad { border-color: var(--bad); outline-color: var(--bad); background: var
 .hint:empty { display: none; }
 .foot { text-align: center; margin-top: 16px; }
 .foot a { color: var(--accent); }
+
+[hidden] { display: none !important; }
+.seg { display: flex; margin: 12px 0 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.seg button { flex: 1; font: inherit; font-size: 15px; font-weight: 600; min-height: 46px; border: 0; background: none; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }

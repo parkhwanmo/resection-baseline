@@ -77,12 +77,21 @@ input.bad { border-color: var(--bad); outline-color: var(--bad); background: var
 .hint:empty { display: none; }
 .foot { text-align: center; margin-top: 16px; }
 .foot a { color: var(--accent); }
+
+[hidden] { display: none !important; }
+.seg { display: flex; margin: 12px 0 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.seg button { flex: 1; font: inherit; font-size: 15px; font-weight: 600; min-height: 46px; border: 0; background: none; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
 </style>
 </head>
 <body>
 <header class="bar"><h1>좌표 거리·방위각</h1><button id="clear" type="button">지우기</button></header>
 <main>
   <div id="banner"></div>
+  <div class="seg" role="group" aria-label="계산 종류">
+    <button type="button" data-mode="inverse" aria-pressed="true">거리·방위각 구하기</button>
+    <button type="button" data-mode="forward" aria-pressed="false">B 좌표 구하기</button>
+  </div>
   <section class="card">
     <h2>점 A</h2>
     <div class="grid2">
@@ -90,17 +99,30 @@ input.bad { border-color: var(--bad); outline-color: var(--bad); background: var
       <label class="field"><span>Y (동)</span><input id="ya" inputmode="decimal" autocomplete="off"></label>
     </div>
   </section>
-  <section class="card">
+  <section class="card" data-show="inverse">
     <h2>점 B</h2>
     <div class="grid2">
       <label class="field"><span>X (북)</span><input id="xb" inputmode="decimal" autocomplete="off"></label>
       <label class="field"><span>Y (동)</span><input id="yb" inputmode="decimal" autocomplete="off"></label>
     </div>
   </section>
+  <section class="card" data-show="forward" hidden>
+    <h2>A → B</h2>
+    <div class="grid2">
+      <label class="field"><span>거리 (m)</span><input id="dist" inputmode="decimal" autocomplete="off"></label>
+      <label class="field"><span>방위각 (ddd.mmss)</span><input id="az" inputmode="decimal" autocomplete="off"></label>
+    </div>
+  </section>
   <section class="card result" aria-live="polite">
-    <div class="res"><span>거리</span><b id="dist">—</b></div>
-    <div class="res"><span>방위각 <small>(A→B)</small></span><b id="az">—</b></div>
-    <p class="hint" id="msg">A, B 좌표를 입력하세요</p>
+    <div data-show="inverse">
+      <div class="res"><span>거리</span><b id="out-dist">—</b></div>
+      <div class="res"><span>방위각 <small>(A→B)</small></span><b id="out-az">—</b></div>
+    </div>
+    <div data-show="forward" hidden>
+      <div class="res"><span>B &nbsp;X (북)</span><b id="out-xb">—</b></div>
+      <div class="res"><span>B &nbsp;Y (동)</span><b id="out-yb">—</b></div>
+    </div>
+    <p class="hint" id="msg"></p>
   </section>
   <p class="hint foot">X = 북, Y = 동 · 방위각은 북에서 시계 방향 · <a href="../">후방교회 기선 거리(v1)</a></p>
 </main>
@@ -341,10 +363,13 @@ function solve(job) {
 }
 
 // ---- v2/inverse.js ----
-// v2 — 두 점 좌표 역계산 (X=북, Y=동, 방위각은 북에서 시계 방향)
+// v2 — 좌표 역계산(두 점 → 거리·방위각)과 정계산(한 점 + 거리·방위각 → 두 번째 점)
+// X=북, Y=동, 방위각은 북에서 시계 방향
 
 const V2_KEY = 'rb.v2.state';
 const V2_FIELDS = ['xa', 'ya', 'xb', 'yb'];
+const V2_TEXT_FIELDS = ['xa', 'ya', 'xb', 'yb', 'dist', 'az'];
+const V2_MODES = ['inverse', 'forward'];
 
 function inverse(a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
@@ -353,6 +378,11 @@ function inverse(a, b) {
   let az = Math.atan2(dy, dx) * 180 / Math.PI;
   if (az < 0) az += 360;
   return { dist, az };
+}
+
+function forward(a, dist, azDeg) {
+  const r = azDeg * Math.PI / 180;
+  return { x: a.x + dist * Math.cos(r), y: a.y + dist * Math.sin(r) };
 }
 
 // 1″ 단위 반올림, 360° → 0°
@@ -366,20 +396,40 @@ function formatDms(deg) {
 }
 
 function emptyState() {
-  return { version: 1, xa: '', ya: '', xb: '', yb: '' };
+  return { version: 1, mode: 'inverse', xa: '', ya: '', xb: '', yb: '', dist: '', az: '' };
 }
 
-// 네 칸이 모두 유효하면 ok, 아니면 형식이 틀린 칸 목록 (빈 칸은 제외)
-function parseState(state) {
+// 칸별 해석: 빈 칸은 건너뛰고, 형식이 틀린 칸은 bad에 모음
+function readFields(state, specs) {
   const vals = {}, bad = [];
-  for (const k of V2_FIELDS) {
+  for (const [k, parse] of specs) {
     const raw = String(state[k] ?? '').trim();
     if (raw === '') continue;
-    const r = parseNum(raw);
+    const r = parse(raw);
     if (r.ok) vals[k] = r.v; else bad.push(k);
   }
-  if (bad.length || Object.keys(vals).length < V2_FIELDS.length) return { ok: false, bad };
+  return { vals, bad, complete: !bad.length && Object.keys(vals).length === specs.length };
+}
+
+const numField = (raw) => parseNum(raw);
+
+// 역계산: 네 칸이 모두 유효하면 ok
+function parseState(state) {
+  const { vals, bad, complete } = readFields(state, V2_FIELDS.map(k => [k, numField]));
+  if (!complete) return { ok: false, bad };
   return { ok: true, a: { x: vals.xa, y: vals.ya }, b: { x: vals.xb, y: vals.yb } };
+}
+
+// 정계산: A 좌표, 거리(0 이상), 방위각(도분초)이 모두 유효하면 ok
+function parseForward(state) {
+  const { vals, bad, complete } = readFields(state, [
+    ['xa', numField], ['ya', numField],
+    ['dist', (raw) => { const r = parseNum(raw); return r.ok && r.v < 0 ? { ok: false } : r; }],
+    ['az', (raw) => { const r = parseAngle(raw, 'dms'); return r.ok ? { ok: true, v: r.rad * 180 / Math.PI } : r; }],
+  ]);
+  if (!complete) return { ok: false, bad };
+  const azDeg = ((vals.az % 360) + 360) % 360;
+  return { ok: true, a: { x: vals.xa, y: vals.ya }, dist: vals.dist, azDeg };
 }
 
 function loadState(storage) {
@@ -387,7 +437,8 @@ function loadState(storage) {
     const data = JSON.parse(storage.getItem(V2_KEY));
     if (data === null || typeof data !== 'object' || Array.isArray(data)) return emptyState();
     const s = emptyState();
-    for (const k of V2_FIELDS) {
+    if (V2_MODES.includes(data.mode)) s.mode = data.mode;
+    for (const k of V2_TEXT_FIELDS) {
       const v = data[k];
       s[k] = v == null || typeof v === 'object' ? '' : String(v);
     }
@@ -407,29 +458,57 @@ function saveState(storage, state) {
 }
 
 // ---- v2/app.js ----
-// v2 화면 — 입력 칸은 고정, 결과·칸 상태만 갱신
+// v2 화면 — 입력 칸은 고정, 모드 전환은 hidden 토글, 결과·칸 상태만 갱신
 
 const v2Storage = {
   getItem(k) { return window.localStorage.getItem(k); },
   setItem(k, v) { window.localStorage.setItem(k, v); },
 };
-const V2_INPUTS = ['xa', 'ya', 'xb', 'yb'];
+const V2_INPUTS = ['xa', 'ya', 'xb', 'yb', 'dist', 'az'];
 let v2State = loadState(v2Storage);
 const byId = (id) => document.getElementById(id);
 
-function showResult() {
+function markBad(bad) {
+  for (const k of V2_INPUTS) byId(k).classList.toggle('bad', bad.includes(k));
+}
+
+function showInverse() {
   const r = parseState(v2State);
-  for (const k of V2_INPUTS) byId(k).classList.toggle('bad', !r.ok && r.bad.includes(k));
+  markBad(r.ok ? [] : r.bad);
   if (!r.ok) {
-    byId('dist').textContent = '—';
-    byId('az').textContent = '—';
+    byId('out-dist').textContent = '—';
+    byId('out-az').textContent = '—';
     byId('msg').textContent = r.bad.length ? '빨간 칸의 숫자 형식을 확인하세요' : 'A, B 좌표를 입력하세요';
     return;
   }
   const { dist, az } = inverse(r.a, r.b);
-  byId('dist').textContent = `${dist.toFixed(3)} m`;
-  byId('az').textContent = az == null ? '—' : formatDms(az);
+  byId('out-dist').textContent = `${dist.toFixed(3)} m`;
+  byId('out-az').textContent = az == null ? '—' : formatDms(az);
   byId('msg').textContent = az == null ? 'A와 B가 같은 점입니다' : '';
+}
+
+function showForward() {
+  const r = parseForward(v2State);
+  markBad(r.ok ? [] : r.bad);
+  if (!r.ok) {
+    byId('out-xb').textContent = '—';
+    byId('out-yb').textContent = '—';
+    byId('msg').textContent = r.bad.length ? '빨간 칸의 형식을 확인하세요 (거리는 0 이상, 방위각은 ddd.mmss)' : 'A 좌표, 거리, 방위각을 입력하세요';
+    return;
+  }
+  const b = forward(r.a, r.dist, r.azDeg);
+  byId('out-xb').textContent = b.x.toFixed(3);
+  byId('out-yb').textContent = b.y.toFixed(3);
+  byId('msg').textContent = `방위각 ${formatDms(r.azDeg)}`;
+}
+
+function showResult() {
+  if (v2State.mode === 'forward') showForward(); else showInverse();
+}
+
+function showMode() {
+  for (const b of document.querySelectorAll('[data-mode]')) b.setAttribute('aria-pressed', String(b.dataset.mode === v2State.mode));
+  for (const el of document.querySelectorAll('[data-show]')) el.hidden = el.dataset.show !== v2State.mode;
 }
 
 function persistV2() {
@@ -443,14 +522,19 @@ for (const k of V2_INPUTS) {
   el.addEventListener('input', () => { v2State[k] = el.value; persistV2(); showResult(); });
 }
 
+for (const b of document.querySelectorAll('[data-mode]')) {
+  b.addEventListener('click', () => { v2State.mode = b.dataset.mode; persistV2(); showMode(); showResult(); });
+}
+
 byId('clear').addEventListener('click', () => {
-  if (V2_INPUTS.some(k => v2State[k].trim()) && !confirm('입력한 좌표를 모두 지울까요?')) return;
-  v2State = emptyState();
+  if (V2_INPUTS.some(k => v2State[k].trim()) && !confirm('입력한 값을 모두 지울까요?')) return;
+  v2State = { ...emptyState(), mode: v2State.mode };
   for (const k of V2_INPUTS) byId(k).value = '';
   persistV2(); showResult();
   byId('xa').focus();
 });
 
+showMode();
 showResult();
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {

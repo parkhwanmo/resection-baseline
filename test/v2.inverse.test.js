@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { V2_KEY, inverse, formatDms, parseState, emptyState, loadState, saveState } from '../src/v2/inverse.js';
+import { V2_KEY, inverse, forward, formatDms, parseState, parseForward, emptyState, loadState, saveState } from '../src/v2/inverse.js';
 
 const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) < eps, `${msg ?? ''} ${a} != ${b}`);
 const deg = (r) => r * 180 / Math.PI;
@@ -55,7 +55,7 @@ const memStorage = () => { const m = new Map(); return { getItem: k => m.get(k) 
 
 test('저장 왕복', () => {
   const st = memStorage();
-  const s = { version: 1, xa: '1', ya: '2', xb: '3', yb: '4' };
+  const s = { version: 1, mode: 'forward', xa: '1', ya: '2', xb: '3', yb: '4', dist: '5', az: '45.3000' };
   assert.equal(saveState(st, s), true);
   assert.deepEqual(loadState(st), s);
 });
@@ -68,5 +68,53 @@ test('저장소 없음·깨진 값 → 빈 상태, 저장 실패는 false', () =
   st.setItem(V2_KEY, '{oops');
   assert.deepEqual(loadState(st), emptyState());
   st.setItem(V2_KEY, '{"version":1,"xa":5,"ya":null}');
-  assert.deepEqual(loadState(st), { version: 1, xa: '5', ya: '', xb: '', yb: '' });
+  assert.deepEqual(loadState(st), { ...emptyState(), xa: '5' });
+});
+
+test('emptyState: 기본 모드는 거리·방위각 구하기', () => {
+  assert.deepEqual(emptyState(), { version: 1, mode: 'inverse', xa: '', ya: '', xb: '', yb: '', dist: '', az: '' });
+});
+
+test('예전 저장(모드 없음)은 inverse 모드로 불러오고, 잘못된 모드도 inverse', () => {
+  const st = memStorage();
+  st.setItem(V2_KEY, '{"version":1,"xa":"1","ya":"2","xb":"3","yb":"4"}');
+  assert.deepEqual(loadState(st), { ...emptyState(), xa: '1', ya: '2', xb: '3', yb: '4' });
+  st.setItem(V2_KEY, '{"version":1,"mode":"x"}');
+  assert.equal(loadState(st).mode, 'inverse');
+});
+
+test('정계산: 축 방향과 4개 사분면', () => {
+  const a = { x: 100, y: 200 };
+  const cases = [[0, 10, 0], [90, 0, 10], [180, -10, 0], [270, 0, -10]];
+  for (const [az, dx, dy] of cases) {
+    const b = forward(a, 10, az);
+    near(b.x, 100 + dx, 1e-9, `az ${az} x`); near(b.y, 200 + dy, 1e-9, `az ${az} y`);
+  }
+  const q = deg(Math.atan2(4, 3));
+  for (const [az, dx, dy] of [[q, 3, 4], [180 - q, -3, 4], [180 + q, -3, -4], [360 - q, 3, -4]]) {
+    const b = forward(a, 5, az);
+    near(b.x, 100 + dx, 1e-9); near(b.y, 200 + dy, 1e-9);
+  }
+});
+
+test('정계산 → 역계산 왕복', () => {
+  const a = { x: 500000.123, y: 200000.456 };
+  const b = forward(a, 48.86, 58 + 48 / 60 + 54 / 3600);
+  const r = inverse(a, b);
+  near(r.dist, 48.86, 1e-9);
+  near(r.az, 58 + 48 / 60 + 54 / 3600, 1e-9);
+});
+
+test('parseForward: 도분초 방위각, 360° 이상, 형식 오류, 음수 거리, 빈 칸', () => {
+  const ok = parseForward({ ...emptyState(), xa: '1000', ya: '2000', dist: '48,86', az: '58.4854' });
+  assert.equal(ok.ok, true);
+  assert.deepEqual(ok.a, { x: 1000, y: 2000 });
+  near(ok.dist, 48.86, 1e-12);
+  near(ok.azDeg, 58 + 48 / 60 + 54 / 3600, 1e-12);
+  near(parseForward({ ...emptyState(), xa: '0', ya: '0', dist: '1', az: '58 48 54' }).azDeg, 58 + 48 / 60 + 54 / 3600, 1e-12);
+  near(parseForward({ ...emptyState(), xa: '0', ya: '0', dist: '1', az: '450' }).azDeg, 90, 1e-12);
+  assert.deepEqual(parseForward({ ...emptyState(), xa: '0', ya: '0', dist: '1', az: '10.7000' }), { ok: false, bad: ['az'] });
+  assert.deepEqual(parseForward({ ...emptyState(), xa: '0', ya: '0', dist: '-5', az: '10' }), { ok: false, bad: ['dist'] });
+  assert.deepEqual(parseForward({ ...emptyState(), xa: '0', ya: 'x', dist: '', az: '' }), { ok: false, bad: ['ya'] });
+  assert.deepEqual(parseForward(emptyState()), { ok: false, bad: [] });
 });
