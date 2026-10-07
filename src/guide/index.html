@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>측량 계산 앱 설치 안내</title>
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<style>
+:root { --bg:#f4f6f8; --surface:#fff; --text:#1b2430; --muted:#5d6b7a; --line:#d9dfe5; --accent:#1f5f8b; --accent-text:#fff; --qr-bg:#fff; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#11161c; --surface:#1b232c; --text:#e6ebf0; --muted:#97a4b2; --line:#2e3a46; --accent:#5aa7dc; --accent-text:#0b1218; color-scheme: dark; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:16px/1.55 system-ui,-apple-system,"Segoe UI","Noto Sans KR",sans-serif; }
+header { background:var(--accent); color:var(--accent-text); padding:18px 16px; }
+header h1 { margin:0 auto; max-width:760px; font-size:21px; }
+header p { margin:4px auto 0; max-width:760px; opacity:.9; font-size:14px; }
+main { max-width:760px; margin:0 auto; padding:4px 16px 32px; }
+.card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; margin:14px 0; }
+.app { display:flex; gap:16px; align-items:center; }
+.qr { flex:0 0 150px; background:var(--qr-bg); border-radius:8px; padding:6px; }
+.qr svg { display:block; width:100%; height:auto; }
+.info { flex:1; min-width:0; }
+h2 { margin:0 0 6px; font-size:18px; }
+h3 { margin:0 0 8px; font-size:16px; }
+.tag { font-size:12px; font-weight:600; color:var(--muted); border:1px solid var(--line); border-radius:99px; padding:1px 8px; vertical-align:middle; }
+.info p { margin:0 0 10px; color:var(--muted); font-size:15px; }
+.btn { display:inline-block; background:var(--accent); color:var(--accent-text); text-decoration:none; font-weight:600; padding:10px 22px; border-radius:8px; min-height:44px; }
+.url { font-size:12px !important; word-break:break-all; margin:8px 0 0 !important; }
+ol, ul { margin:0; padding-left:22px; }
+li { margin:4px 0; }
+code { background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:0 4px; font-size:14px; }
+.note { font-size:14px; color:var(--muted); }
+@media (max-width:520px) { .app { flex-direction:column; align-items:stretch; text-align:center; } .qr { display:none; } }
+@media print { header { background:none; color:#000; border-bottom:2px solid #000; } .btn { display:none; } .card { break-inside:avoid; } .qr { display:block !important; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>측량 계산 앱 설치 안내</h1>
+  <p>안드로이드 폰에 앱으로 설치해 현장에서 인터넷 없이 쓸 수 있습니다.</p>
+</header>
+<main>
+  
+    <section class="card app">
+      <div class="qr"><svg role="img" aria-label="후방교회 기선 거리 QR 코드" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 35" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h35v35H0z"/><path stroke="#000000" d="M1 1.5h7m3 0h1m1 0h3m1 0h2m1 0h2m1 0h2m2 0h7M1 2.5h1m5 0h1m3 0h1m2 0h5m2 0h2m2 0h1m1 0h1m5 0h1M1 3.5h1m1 0h3m1 0h1m1 0h2m2 0h2m2 0h3m2 0h2m1 0h1m1 0h1m1 0h3m1 0h1M1 4.5h1m1 0h3m1 0h1m1 0h4m2 0h1m1 0h1m2 0h2m1 0h3m1 0h1m1 0h3m1 0h1M1 5.5h1m1 0h3m1 0h1m1 0h1m1 0h1m4 0h1m2 0h1m2 0h1m1 0h1m2 0h1m1 0h3m1 0h1M1 6.5h1m5 0h1m1 0h3m1 0h2m1 0h2m3 0h1m1 0h1m1 0h1m1 0h1m5 0h1M1 7.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 8.5h3m4 0h1m2 0h1m2 0h2M1 9.5h1m1 0h5m3 0h6m1 0h1m4 0h3m1 0h5M1 10.5h1m1 0h4m6 0h1m5 0h3m2 0h1m2 0h2m1 0h2m1 0h1M3 11.5h2m1 0h4m2 0h1m3 0h2m1 0h1m1 0h1m1 0h1m2 0h2m1 0h1m1 0h2M1 12.5h2m1 0h3m2 0h3m3 0h1m1 0h1m2 0h3m1 0h3m2 0h4M1 13.5h1m1 0h1m3 0h1m4 0h1m6 0h1m3 0h4m1 0h3m1 0h1M1 14.5h5m2 0h1m1 0h1m1 0h1m1 0h5m2 0h2m1 0h1m2 0h2m2 0h3M1 15.5h2m2 0h1m1 0h3m1 0h1m1 0h1m1 0h1m3 0h2m1 0h1m3 0h5m1 0h1M1 16.5h2m1 0h3m2 0h1m4 0h2m1 0h1m1 0h5m2 0h2m1 0h3M1 17.5h2m1 0h6m1 0h3m4 0h1m1 0h1m2 0h1m1 0h2m1 0h3m2 0h1M1 18.5h2m2 0h1m4 0h1m1 0h1m4 0h2m1 0h3m1 0h1m1 0h3m1 0h2m1 0h1M2 19.5h6m2 0h1m1 0h1m3 0h3m3 0h2m1 0h1m2 0h2m1 0h2M1 20.5h5m2 0h2m2 0h2m2 0h1m1 0h8m1 0h7M1 21.5h3m3 0h6m1 0h2m1 0h1m2 0h2m3 0h2m1 0h3M1 22.5h6m2 0h3m1 0h1m1 0h2m2 0h1m4 0h1m2 0h1m2 0h2m1 0h1M1 23.5h1m1 0h3m1 0h3m1 0h3m1 0h3m3 0h1m1 0h1m5 0h1m1 0h2M1 24.5h1m1 0h2m1 0h1m5 0h5m5 0h1m1 0h2m3 0h3M1 25.5h1m1 0h3m1 0h1m1 0h1m2 0h1m3 0h1m1 0h1m4 0h1m1 0h5M9 26.5h1m1 0h1m1 0h1m3 0h1m1 0h2m3 0h2m3 0h1m1 0h3M1 27.5h7m3 0h2m1 0h1m1 0h1m2 0h1m1 0h1m1 0h3m1 0h1m1 0h1m1 0h2M1 28.5h1m5 0h1m1 0h1m1 0h1m2 0h2m1 0h1m2 0h6m3 0h4M1 29.5h1m1 0h3m1 0h1m1 0h2m1 0h3m4 0h2m1 0h1m2 0h6m1 0h1M1 30.5h1m1 0h3m1 0h1m1 0h2m3 0h1m1 0h2m3 0h1m2 0h3m2 0h1m2 0h2M1 31.5h1m1 0h3m1 0h1m1 0h1m1 0h1m3 0h1m2 0h3m1 0h2m1 0h1m1 0h2m1 0h2M1 32.5h1m5 0h1m5 0h1m3 0h1m1 0h6m4 0h3M1 33.5h7m1 0h1m1 0h2m5 0h3m2 0h4m1 0h1m3 0h1"/></svg>
+</div>
+      <div class="info">
+        <h2>후방교회 기선 거리 <span class="tag">v1</span></h2>
+        <p>미지점 S1·S2에 기계를 세우고 같은 공통점을 관측하면 S1–S2 수평거리·사거리·고저차와 상대 좌표를 계산합니다.</p>
+        <a class="btn" href="https://parkhwanmo.github.io/resection-baseline/">열기</a>
+        <p class="url">https://parkhwanmo.github.io/resection-baseline/</p>
+      </div>
+    </section>
+    <section class="card app">
+      <div class="qr"><svg role="img" aria-label="좌표 거리·방위각 QR 코드" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 35" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h35v35H0z"/><path stroke="#000000" d="M1 1.5h7m2 0h1m4 0h1m1 0h1m2 0h2m1 0h2m2 0h7M1 2.5h1m5 0h1m2 0h1m5 0h2m1 0h1m1 0h2m2 0h1m1 0h1m5 0h1M1 3.5h1m1 0h3m1 0h1m1 0h1m3 0h1m1 0h1m1 0h1m4 0h2m1 0h1m1 0h1m1 0h3m1 0h1M1 4.5h1m1 0h3m1 0h1m1 0h5m5 0h2m2 0h3m1 0h1m1 0h3m1 0h1M1 5.5h1m1 0h3m1 0h1m1 0h1m2 0h2m1 0h3m3 0h2m1 0h1m2 0h1m1 0h3m1 0h1M1 6.5h1m5 0h1m1 0h1m1 0h4m5 0h1m2 0h1m1 0h1m1 0h1m5 0h1M1 7.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 8.5h2m1 0h1m4 0h1m1 0h5M1 9.5h1m1 0h5m2 0h1m2 0h3m2 0h1m1 0h1m2 0h3m1 0h5M5 10.5h2m1 0h1m1 0h3m1 0h1m3 0h4m2 0h1m2 0h2m1 0h2m1 0h1M1 11.5h2m2 0h1m1 0h1m3 0h1m1 0h6m2 0h1m1 0h1m2 0h2m1 0h1m1 0h2M1 12.5h1m3 0h1m2 0h1m1 0h1m2 0h2m2 0h6m1 0h3m2 0h4M2 13.5h1m3 0h2m1 0h1m1 0h1m3 0h1m1 0h1m5 0h4m1 0h3m1 0h1M1 14.5h3m2 0h1m3 0h2m2 0h1m1 0h1m1 0h2m2 0h1m1 0h1m2 0h2m2 0h3M1 15.5h1m2 0h6m2 0h6m1 0h1m1 0h2m3 0h5m1 0h1M1 16.5h4m3 0h1m1 0h2m1 0h2m1 0h1m2 0h5m2 0h2m1 0h3M2 17.5h4m1 0h1m1 0h3m1 0h2m1 0h1m1 0h1m1 0h1m2 0h1m1 0h2m1 0h3m2 0h1M2 18.5h2m4 0h4m1 0h1m3 0h1m2 0h3m1 0h1m1 0h3m1 0h2m1 0h1M2 19.5h1m2 0h1m1 0h2m2 0h1m4 0h2m1 0h1m2 0h2m1 0h1m2 0h2m1 0h2M3 20.5h3m2 0h2m1 0h2m1 0h1m1 0h1m3 0h6m1 0h7M1 21.5h3m1 0h3m1 0h4m6 0h2m4 0h2m1 0h3M1 22.5h1m2 0h2m2 0h2m3 0h1m1 0h3m2 0h1m3 0h1m2 0h1m2 0h2m1 0h1M1 23.5h1m2 0h4m1 0h1m2 0h2m1 0h1m7 0h1m5 0h1m1 0h2M1 24.5h1m1 0h2m1 0h1m1 0h2m2 0h1m4 0h1m2 0h1m1 0h1m1 0h2m3 0h5M1 25.5h1m2 0h2m1 0h1m1 0h1m1 0h1m2 0h1m3 0h1m4 0h1m1 0h5M9 26.5h2m1 0h4m1 0h4m3 0h2m3 0h1m1 0h3M1 27.5h7m3 0h1m1 0h1m2 0h1m1 0h1m2 0h1m1 0h3m1 0h1m1 0h1m1 0h2M1 28.5h1m5 0h1m1 0h1m2 0h1m4 0h9m3 0h4M1 29.5h1m1 0h3m1 0h1m1 0h2m3 0h1m2 0h1m2 0h2m1 0h1m1 0h6m1 0h1M1 30.5h1m1 0h3m1 0h1m1 0h6m1 0h1m2 0h2m2 0h4m2 0h1m2 0h2M1 31.5h1m1 0h3m1 0h1m1 0h1m1 0h4m1 0h4m2 0h2m1 0h1m1 0h2m1 0h2M1 32.5h1m5 0h1m3 0h2m3 0h1m2 0h6m4 0h3M1 33.5h7m1 0h2m2 0h4m1 0h2m3 0h4m1 0h1m3 0h1"/></svg>
+</div>
+      <div class="info">
+        <h2>좌표 거리·방위각 <span class="tag">v2</span></h2>
+        <p>두 점 좌표(X=북, Y=동)로 거리·방위각을 구하거나, 한 점 좌표와 거리·방위각으로 두 번째 점 좌표를 구합니다.</p>
+        <a class="btn" href="https://parkhwanmo.github.io/resection-baseline/v2/">열기</a>
+        <p class="url">https://parkhwanmo.github.io/resection-baseline/v2/</p>
+      </div>
+    </section>
+
+  <section class="card">
+    <h3>설치 방법 (안드로이드)</h3>
+    <ol>
+      <li>위 QR을 폰 카메라로 스캔하거나 <b>열기</b>를 눌러 <b>크롬</b>으로 엽니다.</li>
+      <li>오른쪽 위 메뉴 <b>⋮</b> → <b>앱 설치</b>(또는 <b>홈 화면에 추가</b>)를 누릅니다.</li>
+      <li>홈 화면과 앱 목록에 아이콘이 생깁니다. 두 앱은 따로 설치합니다.</li>
+      <li>설치 후 <b>한 번은 인터넷이 될 때 열어 주세요.</b> 그다음부터는 비행기 모드에서도 열립니다.</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h3>후방교회 기선 거리 (v1) 사용 순서</h3>
+    <ol>
+      <li><b>+ 새 작업</b>을 만듭니다.</li>
+      <li><b>S1</b> 탭: 기계고를 넣고, 공통점을 <b>+ 관측값</b>으로 입력합니다 (사거리, 수평각, 천정각, 프리즘고).</li>
+      <li><b>S2</b> 탭: 기계를 옮겨 <b>같은 점명</b>으로 같은 공통점을 관측해 입력합니다. 3점 이상 권장.</li>
+      <li><b>결과</b> 탭: S1–S2 거리, 공통점 잔차, 상대 좌표를 확인합니다. 허용 잔차(기본 5mm)를 넘는 점은 빨간색 — 체크 해제로 빼고 다시 계산합니다.</li>
+    </ol>
+    <p class="note">각도는 도분초 <code>ddd.mmss</code> 로 입력합니다. 예: <code>123.4530</code> = 123°45′30″, <code>90.05</code> = 90°05′. 설정 탭에서 십진 도·gon, 고도각으로 바꿀 수 있습니다.</p>
+  </section>
+
+  <section class="card">
+    <h3>좌표 거리·방위각 (v2) 사용법</h3>
+    <ul>
+      <li><b>거리·방위각 구하기</b>: 점 A, B의 <b>X(북)·Y(동)</b>를 넣으면 A→B 거리(m)와 방위각(북에서 시계 방향, 1″ 단위)이 바로 나옵니다.</li>
+      <li><b>B 좌표 구하기</b>: 점 A의 X·Y와 거리, 방위각(<code>ddd.mmss</code>)을 넣으면 점 B의 X·Y가 나옵니다.</li>
+      <li>입력은 자동 저장되고 <b>지우기</b>로 비웁니다.</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h3>알아 두기</h3>
+    <ul>
+      <li>입력한 데이터는 <b>각자 폰에만</b> 저장되고 서버로 전송되지 않습니다.</li>
+      <li>크롬 사이트 데이터를 지우면 입력도 지워집니다. v1은 작업 목록의 <b>백업 저장</b>으로 파일을 보관할 수 있습니다.</li>
+      <li>앱이 업데이트되면 인터넷 연결 시 다음에 열 때 자동으로 새 버전이 적용됩니다.</li>
+      <li>계산 결과는 현장 확인용입니다. 중요한 성과는 측량기·정식 프로그램 결과와 대조해 주세요.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

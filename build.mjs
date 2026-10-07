@@ -41,3 +41,8 @@ for (const app of APPS) {
   writeFileSync(new URL('sw.js', out), sw.replace('__PREFIX__', app.prefix).replace('__VERSION__', version));
   console.log(`${app.out} 생성 (version ${app.prefix}${version}, index.html ${(html.length / 1024).toFixed(1)} KB)`);
 }
+
+// 동료 설치 안내 페이지 (정적 파일 그대로 복사)
+mkdirSync(new URL('./dist/guide/', import.meta.url), { recursive: true });
+writeFileSync(new URL('./dist/guide/index.html', import.meta.url), src('guide/index.html'));
+console.log('dist/guide/ 생성');
