@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { solve, fitRigid2D } from '../src/calc.js';
+import { solve, fitRigid2D, pruneExcluded } from '../src/calc.js';
 import { makeJob } from './helpers/synth.js';
 
 const S1 = { x: 0, y: 0, z: 0, hi: 1.55, az: 23 };
@@ -69,10 +69,12 @@ test('공통점 1점: 계산 불가', () => {
   assert.equal(r.baseline, null);
 });
 
-test('제외로 공통점이 2점 미만이 되면 계산 불가', () => {
+test('제외로 공통점이 2점 미만이 되면 제외 무시', () => {
   const job = makeJob({ S1, S2, targets: T.slice(0, 2) });
   job.excluded = ['t1'];
-  assert.equal(solve(job).status, 'fail');
+  const r = solve(job);
+  assert.equal(r.status, 'warn');
+  assert.ok(codes(r).includes('EXCLUDE_IGNORED'));
 });
 
 test('공통점 배치가 좁으면 NARROW 경고', () => {
@@ -139,4 +141,40 @@ test('한쪽에서만 관측한 점은 그 기계점 출처로 포함', () => {
   assert.equal(p.source, 'S2');
   const s2 = r.points.find(q => q.name === 'S2');
   near(Math.hypot(p.X - s2.X, p.Y - s2.Y), Math.hypot(5 - 37.21, 5 + 12.48), 1e-4);
+});
+
+test('프리즘고 착오(높이만 틀림)는 그 점이 worst로 지목', () => {
+  const pts = [
+    { name: 'A', x: 15, y: 30, z: 2.1 }, { name: 'B', x: -12, y: 8, z: -0.4 },
+    { name: 'C', x: 20, y: -35, z: 1.2 }, { name: 'D', x: 55, y: 10, z: 3.3 }, { name: 'E', x: 40, y: 25, z: 0.2 },
+  ];
+  const job = makeJob({ S1, S2, targets: pts, noise: 0.001, seed: 3 });
+  job.stations.S2.obs.find(o => o.name === 'A').ht = '0.05';
+  const r = solve(job);
+  assert.equal(r.worst, 'A');
+});
+
+test('제외 후 공통점이 줄어 2점 미만이면 제외를 무시하고 계산', () => {
+  const job = makeJob({ S1, S2, targets: T.slice(0, 3) });
+  job.excluded = ['T3'];
+  job.stations.S2.obs = job.stations.S2.obs.filter(o => o.name !== 'T1');
+  const r = solve(job);
+  assert.notEqual(r.status, 'fail');
+  assert.ok(codes(r).includes('EXCLUDE_IGNORED'));
+  assert.equal(r.common.every(c => !c.excluded), true);
+  near(r.baseline.hd, TRUE_HD, 1e-4);
+});
+
+test('계산 불가 메시지에 입력 오류 점 수 표시', () => {
+  const job = makeJob({ S1, S2, targets: T.slice(0, 3) });
+  job.stations.S2.hi = '1.4x';
+  const r = solve(job);
+  assert.equal(r.status, 'fail');
+  assert.match(r.messages[0].text, /입력 오류 3점/);
+});
+
+test('pruneExcluded는 공통점이 아닌 제외 이름을 정리', () => {
+  const job = makeJob({ S1, S2, targets: T });
+  job.excluded = ['T2', 'GONE'];
+  assert.deepEqual(pruneExcluded(job), ['T2']);
 });

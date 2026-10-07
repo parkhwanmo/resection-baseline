@@ -122,6 +122,13 @@ function stationPoints(station, settings) {
   return { list, map };
 }
 
+// 현재 공통점에 해당하는 제외 이름만 남김 (점 삭제·이름 변경 후 정리)
+export function pruneExcluded(job) {
+  const keys = (st) => new Set(st.obs.map(o => normName(o.name)).filter(Boolean));
+  const k1 = keys(job.stations.S1), k2 = keys(job.stations.S2);
+  return (job.excluded || []).filter(n => k1.has(normName(n)) && k2.has(normName(n)));
+}
+
 export function solve(job) {
   const settings = job.settings;
   const tolH = Number(settings.tolH), tolV = Number(settings.tolV);
@@ -131,14 +138,22 @@ export function solve(job) {
     S1: s1.list.map(({ id, name, ok, error, dup }) => ({ id, name, ok, error, dup })),
     S2: s2.list.map(({ id, name, ok, error, dup }) => ({ id, name, ok, error, dup })),
   };
-  const excluded = new Set((job.excluded || []).map(normName));
+  let excluded = new Set((job.excluded || []).map(normName));
   const commonKeys = [...s1.map.keys()].filter(k => s2.map.has(k));
-  const activeKeys = commonKeys.filter(k => !excluded.has(k));
+  let activeKeys = commonKeys.filter(k => !excluded.has(k));
   const messages = [];
 
+  // 제외 때문에 2점 미만이 되면 제외를 무시 (항상 진행)
+  if (activeKeys.length < 2 && commonKeys.length >= 2) {
+    excluded = new Set();
+    activeKeys = commonKeys;
+    messages.push({ level: 'warn', code: 'EXCLUDE_IGNORED', text: '공통점이 부족해 제외 설정을 무시하고 모든 공통점으로 계산함' });
+  }
+
   if (activeKeys.length < 2) {
+    const bad = s1.list.filter(p => !p.ok).length + s2.list.filter(p => !p.ok).length;
     messages.push({ level: 'error', code: 'NOT_ENOUGH_COMMON',
-      text: '계산 불가 — S1과 S2에서 같은 이름으로 2점 이상 관측 필요' });
+      text: '계산 불가 — S1과 S2에서 같은 이름으로 2점 이상 관측 필요' + (bad ? ` (입력 오류 ${bad}점은 계산에서 빠짐)` : '') });
     return {
       status: 'fail', messages, baseline: null,
       common: commonKeys.map(k => ({ name: s1.map.get(k).name.trim(), excluded: excluded.has(k), rh: null, rv: null, over: false })),
@@ -162,7 +177,8 @@ export function solve(job) {
   const rmsH = Math.sqrt(active.reduce((s, r) => s + r.rh ** 2, 0) / active.length);
   const rmsV = Math.sqrt(active.reduce((s, r) => s + r.rv ** 2, 0) / active.length);
   const overs = active.filter(r => r.over);
-  const worst = overs.length ? overs.reduce((m, r) => (r.rh > m.rh ? r : m)).name : null;
+  const badness = (r) => Math.max(r.rh / tolH, Math.abs(r.rv) / tolV);
+  const worst = overs.length ? overs.reduce((m, r) => (badness(r) > badness(m) ? r : m)).name : null;
 
   if (activeKeys.length === 2)
     messages.push({ level: 'warn', code: 'TWO_COMMON', text: '검증 불가 — 공통점 3점 이상 권장' });

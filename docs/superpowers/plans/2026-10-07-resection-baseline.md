@@ -99,7 +99,7 @@
       baseline: {hd, sd, dz} | null,
       common: [{name, excluded, rh, rv, over}],   // rh/rv m, excluded 행은 rh/rv null
       rmsH, rmsV,                                  // 활성 공통점 기준, fail이면 null
-      worst: string|null,                          // 허용 초과 중 rh 최대 점 이름
+      worst: string|null,                          // 허용 초과 중 max(rh/tolH, |rv|/tolV) 최대 점 이름
       points: [{name, X, Y, Z, source:'S1'|'S2'|'both'}],   // S1, S2 행 포함(앞쪽)
       perStation: {S1: [{id, name, ok, error, dup}], S2: [...]}
     }

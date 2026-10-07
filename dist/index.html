@@ -267,6 +267,13 @@ function stationPoints(station, settings) {
   return { list, map };
 }
 
+// 현재 공통점에 해당하는 제외 이름만 남김 (점 삭제·이름 변경 후 정리)
+function pruneExcluded(job) {
+  const keys = (st) => new Set(st.obs.map(o => normName(o.name)).filter(Boolean));
+  const k1 = keys(job.stations.S1), k2 = keys(job.stations.S2);
+  return (job.excluded || []).filter(n => k1.has(normName(n)) && k2.has(normName(n)));
+}
+
 function solve(job) {
   const settings = job.settings;
   const tolH = Number(settings.tolH), tolV = Number(settings.tolV);
@@ -276,14 +283,22 @@ function solve(job) {
     S1: s1.list.map(({ id, name, ok, error, dup }) => ({ id, name, ok, error, dup })),
     S2: s2.list.map(({ id, name, ok, error, dup }) => ({ id, name, ok, error, dup })),
   };
-  const excluded = new Set((job.excluded || []).map(normName));
+  let excluded = new Set((job.excluded || []).map(normName));
   const commonKeys = [...s1.map.keys()].filter(k => s2.map.has(k));
-  const activeKeys = commonKeys.filter(k => !excluded.has(k));
+  let activeKeys = commonKeys.filter(k => !excluded.has(k));
   const messages = [];
 
+  // 제외 때문에 2점 미만이 되면 제외를 무시 (항상 진행)
+  if (activeKeys.length < 2 && commonKeys.length >= 2) {
+    excluded = new Set();
+    activeKeys = commonKeys;
+    messages.push({ level: 'warn', code: 'EXCLUDE_IGNORED', text: '공통점이 부족해 제외 설정을 무시하고 모든 공통점으로 계산함' });
+  }
+
   if (activeKeys.length < 2) {
+    const bad = s1.list.filter(p => !p.ok).length + s2.list.filter(p => !p.ok).length;
     messages.push({ level: 'error', code: 'NOT_ENOUGH_COMMON',
-      text: '계산 불가 — S1과 S2에서 같은 이름으로 2점 이상 관측 필요' });
+      text: '계산 불가 — S1과 S2에서 같은 이름으로 2점 이상 관측 필요' + (bad ? ` (입력 오류 ${bad}점은 계산에서 빠짐)` : '') });
     return {
       status: 'fail', messages, baseline: null,
       common: commonKeys.map(k => ({ name: s1.map.get(k).name.trim(), excluded: excluded.has(k), rh: null, rv: null, over: false })),
@@ -307,7 +322,8 @@ function solve(job) {
   const rmsH = Math.sqrt(active.reduce((s, r) => s + r.rh ** 2, 0) / active.length);
   const rmsV = Math.sqrt(active.reduce((s, r) => s + r.rv ** 2, 0) / active.length);
   const overs = active.filter(r => r.over);
-  const worst = overs.length ? overs.reduce((m, r) => (r.rh > m.rh ? r : m)).name : null;
+  const badness = (r) => Math.max(r.rh / tolH, Math.abs(r.rv) / tolV);
+  const worst = overs.length ? overs.reduce((m, r) => (badness(r) > badness(m) ? r : m)).name : null;
 
   if (activeKeys.length === 2)
     messages.push({ level: 'warn', code: 'TWO_COMMON', text: '검증 불가 — 공통점 3점 이상 권장' });
@@ -380,12 +396,56 @@ function newObs(mode) {
   return { id: uid(), name: '', mode, sd: '', ha: '', va: '', ht: '', n: '', e: '', z: '' };
 }
 
+const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const safeId = (v) => typeof v === "string" && SAFE_ID_RE.test(v);
+const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const str = (v) => (v == null ? '' : typeof v === 'object' ? '' : String(v));
+const posNum = (v, d) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : d);
+const pick = (v, allowed, d) => (allowed.includes(v) ? v : d);
+
+// 백업·저장소에서 읽은 작업을 현재 스키마로 보정 (객체가 아니면 null)
+function normalizeJob(j) {
+  if (!isObj(j)) return null;
+  const base = newJob('');
+  const s = isObj(j.settings) ? j.settings : {};
+  const station = (st) => {
+    st = isObj(st) ? st : {};
+    return {
+      hi: str(st.hi), n0: str(st.n0), e0: str(st.e0), z0: str(st.z0),
+      obs: (Array.isArray(st.obs) ? st.obs : []).filter(isObj).map(o => ({
+        id: safeId(o.id) ? o.id : uid(),
+        name: str(o.name),
+        mode: pick(o.mode, ['polar', 'coord'], 'polar'),
+        sd: str(o.sd), ha: str(o.ha), va: str(o.va), ht: str(o.ht), n: str(o.n), e: str(o.e), z: str(o.z),
+      })),
+    };
+  };
+  const stations = isObj(j.stations) ? j.stations : {};
+  return {
+    id: safeId(j.id) ? j.id : base.id,
+    name: str(j.name) || '이름 없음',
+    createdAt: posNum(j.createdAt, base.createdAt),
+    updatedAt: posNum(j.updatedAt, base.updatedAt),
+    settings: {
+      angleUnit: pick(s.angleUnit, ['dms', 'deg', 'gon'], 'dms'),
+      vAngle: pick(s.vAngle, ['zenith', 'elevation'], 'zenith'),
+      tolH: posNum(s.tolH, 0.005),
+      tolV: posNum(s.tolV, 0.005),
+      axis: pick(s.axis, ['baseline', 's1'], 'baseline'),
+    },
+    stations: { S1: station(stations.S1), S2: station(stations.S2) },
+    excluded: (Array.isArray(j.excluded) ? j.excluded : []).filter(v => typeof v === 'string'),
+  };
+}
+
+const normalizeJobs = (jobs) => jobs.map(normalizeJob).filter(Boolean);
+
 function loadJobs(storage) {
   try {
     const text = storage.getItem(STORAGE_KEY);
     if (text == null) return { ok: true, jobs: [] };
     const data = JSON.parse(text);
-    return Array.isArray(data.jobs) ? { ok: true, jobs: data.jobs } : { ok: false, jobs: [] };
+    return Array.isArray(data.jobs) ? { ok: true, jobs: normalizeJobs(data.jobs) } : { ok: false, jobs: [] };
   } catch {
     return { ok: false, jobs: [] };
   }
@@ -408,7 +468,7 @@ function importBackup(text) {
   try {
     const data = JSON.parse(text);
     if (!data || data.version !== 1 || !Array.isArray(data.jobs)) return { ok: false, error: '백업 파일 형식이 아님' };
-    return { ok: true, jobs: data.jobs };
+    return { ok: true, jobs: normalizeJobs(data.jobs) };
   } catch {
     return { ok: false, error: '백업 파일을 읽을 수 없음' };
   }
@@ -498,7 +558,8 @@ function renderBanner() {
 
 function listView() {
   const items = state.jobs.slice().sort((a, b) => b.updatedAt - a.updatedAt).map(j => {
-    const r = solve(j);
+    let r;
+    try { r = solve(j); } catch { r = { baseline: null }; }
     const meta = r.baseline ? `기선 ${f3(r.baseline.hd)} m` : `S1 ${j.stations.S1.obs.length}점 · S2 ${j.stations.S2.obs.length}점`;
     return `<li><div class="row">
       <button class="item grow" data-act="open" data-id="${j.id}"><span class="name">${esc(j.name)}</span><span class="meta">${meta}<br>${new Date(j.updatedAt).toLocaleString('ko-KR')}</span></button>
@@ -706,6 +767,7 @@ function saveDraft() {
   const st = currentJob().stations[sh.station];
   const i = st.obs.findIndex(o => o.id === sh.draft.id);
   if (i >= 0) st.obs[i] = { ...sh.draft }; else st.obs.push({ ...sh.draft });
+  currentJob().excluded = pruneExcluded(currentJob());
   persist();
 }
 
@@ -780,6 +842,7 @@ document.addEventListener('click', async (e) => {
       if (!confirm('이 점을 삭제할까요?')) return;
       const st = job.stations[state.sheet.station];
       st.obs = st.obs.filter(o => o.id !== state.sheet.draft.id);
+      job.excluded = pruneExcluded(job);
       state.sheet = null; persist(); render(); break;
     }
     case 'close': state.sheet = null; renderSheet(); break;

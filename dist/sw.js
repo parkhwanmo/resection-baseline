@@ -1,5 +1,5 @@
 // 오프라인 캐시 (캐시 우선)
-const CACHE = 'rb-92a93e30';
+const CACHE = 'rb-31cd82c6';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', (e) => {

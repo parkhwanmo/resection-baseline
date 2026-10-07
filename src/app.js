@@ -1,5 +1,5 @@
 // 화면 — 계산은 calc.solve 결과만 사용
-import { solve, localPoint, normName } from './calc.js';
+import { solve, localPoint, normName, pruneExcluded } from './calc.js';
 import { newJob, newObs, loadJobs, saveJobs, exportBackup, importBackup, resultCsv, fmtFixed } from './store.js';
 
 const safeStorage = {
@@ -57,7 +57,8 @@ function renderBanner() {
 
 function listView() {
   const items = state.jobs.slice().sort((a, b) => b.updatedAt - a.updatedAt).map(j => {
-    const r = solve(j);
+    let r;
+    try { r = solve(j); } catch { r = { baseline: null }; }
     const meta = r.baseline ? `기선 ${f3(r.baseline.hd)} m` : `S1 ${j.stations.S1.obs.length}점 · S2 ${j.stations.S2.obs.length}점`;
     return `<li><div class="row">
       <button class="item grow" data-act="open" data-id="${j.id}"><span class="name">${esc(j.name)}</span><span class="meta">${meta}<br>${new Date(j.updatedAt).toLocaleString('ko-KR')}</span></button>
@@ -265,6 +266,7 @@ function saveDraft() {
   const st = currentJob().stations[sh.station];
   const i = st.obs.findIndex(o => o.id === sh.draft.id);
   if (i >= 0) st.obs[i] = { ...sh.draft }; else st.obs.push({ ...sh.draft });
+  currentJob().excluded = pruneExcluded(currentJob());
   persist();
 }
 
@@ -339,6 +341,7 @@ document.addEventListener('click', async (e) => {
       if (!confirm('이 점을 삭제할까요?')) return;
       const st = job.stations[state.sheet.station];
       st.obs = st.obs.filter(o => o.id !== state.sheet.draft.id);
+      job.excluded = pruneExcluded(job);
       state.sheet = null; persist(); render(); break;
     }
     case 'close': state.sheet = null; renderSheet(); break;

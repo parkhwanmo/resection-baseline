@@ -80,3 +80,31 @@ test('CSV: 계산 불가여도 생성', () => {
   assert.ok(csv.startsWith('﻿'));
   assert.ok(csv.includes('계산 불가'));
 });
+
+test('구조가 깨진 백업 작업은 기본값으로 보정되어 계산 가능', () => {
+  const r = importBackup('{"version":1,"jobs":[{"id":"x"},{"id":"\\"><img src=x>","name":5,"stations":{"S1":{"obs":[{"mode":"bad","sd":3}]}}}]}');
+  assert.equal(r.ok, true);
+  assert.equal(r.jobs.length, 2);
+  for (const j of r.jobs) {
+    assert.doesNotThrow(() => solve(j));
+    assert.match(j.id, /^[A-Za-z0-9_-]+$/);
+    assert.equal(typeof j.name, 'string');
+    assert.equal(j.settings.tolH, 0.005);
+  }
+  const o = r.jobs[1].stations.S1.obs[0];
+  assert.equal(o.mode, 'polar'); assert.equal(o.sd, '3'); assert.match(o.id, /^[A-Za-z0-9_-]+$/);
+});
+
+test('객체가 아닌 작업 항목은 버림', () => {
+  const r = importBackup('{"version":1,"jobs":[null, 3, "x", {"name":"ok"}]}');
+  assert.equal(r.ok, true);
+  assert.equal(r.jobs.length, 1);
+});
+
+test('저장소의 깨진 작업도 불러올 때 보정', () => {
+  const st = memStorage();
+  st.setItem(STORAGE_KEY, '{"version":1,"jobs":[{"id":"x"}]}');
+  const r = loadJobs(st);
+  assert.equal(r.ok, true);
+  assert.doesNotThrow(() => solve(r.jobs[0]));
+});
