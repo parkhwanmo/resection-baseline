@@ -57,9 +57,9 @@ const cell = (v) => {
   const s = String(v ?? '');
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
-const fix = (v, d) => { const s = v.toFixed(d); return /^-0\.0*$/.test(s) ? s.slice(1) : s; };
-const m4 = (v) => (v == null ? '' : fix(v, 4));
-const mm1 = (v) => (v == null ? '' : fix(v * 1000, 1));
+export const fmtFixed = (v, d) => { const s = v.toFixed(d); return /^-0\.0*$/.test(s) ? s.slice(1) : s; };
+const m4 = (v) => (v == null ? '' : fmtFixed(v, 4));
+const mm1 = (v) => (v == null ? '' : fmtFixed(v * 1000, 1));
 
 export function resultCsv(job, result) {
   const rows = [[job.name], []];
