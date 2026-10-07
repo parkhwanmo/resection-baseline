@@ -108,3 +108,14 @@ test('저장소의 깨진 작업도 불러올 때 보정', () => {
   assert.equal(r.ok, true);
   assert.doesNotThrow(() => solve(r.jobs[0]));
 });
+
+test('CSV: 수식으로 해석될 이름은 작은따옴표로 시작, 음수는 그대로', () => {
+  const job = makeJob({
+    S1: { x: 0, y: 0, z: 0, az: 10 }, S2: { x: 20, y: 5, z: 0.3, az: 200 },
+    targets: [{ name: '=CMD()', x: 5, y: 15, z: 0 }, { name: '@A', x: 25, y: -10, z: 1 }, { name: 'T3', x: -5, y: -5, z: 0 }],
+  });
+  const csv = resultCsv(job, solve(job));
+  assert.ok(csv.includes("\r\n'=CMD(),"));
+  assert.ok(csv.includes("\r\n'@A,"));
+  assert.match(csv, /\r\nT3,-\d/);
+});

@@ -19,7 +19,10 @@ const html = src('index.html')
 const out = new URL('./dist/', import.meta.url);
 mkdirSync(out, { recursive: true });
 writeFileSync(new URL('index.html', out), html);
-const version = createHash('sha256').update(html).digest('hex').slice(0, 8);
+// 캐시 버전: 배포되는 모든 파일 기준
+const hash = createHash('sha256').update(html);
+for (const f of ['sw.js', 'manifest.webmanifest', 'icon.svg']) hash.update(src(f));
+const version = hash.digest('hex').slice(0, 8);
 writeFileSync(new URL('sw.js', out), src('sw.js').replace('__VERSION__', version));
 for (const f of ['manifest.webmanifest', 'icon.svg']) copyFileSync(new URL(`./src/${f}`, import.meta.url), new URL(f, out));
 console.log(`dist/ 생성 (version ${version}, index.html ${(html.length / 1024).toFixed(1)} KB)`);

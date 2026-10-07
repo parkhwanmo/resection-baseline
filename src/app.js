@@ -137,9 +137,9 @@ function stationView(job, key) {
         </div>
       </details>
     </div>
-    <div class="card">
+    <div class="card"><div id="obs-list">
       <h2>관측점 ${st.obs.length}개 · 공통점 ${nCommon}개</h2>
-      ${rows ? `<ul class="list">${rows}</ul>` : `<p class="hint">${key === 'S1' ? 'S1에서 보이는 공통점(타겟)을 관측해 입력하세요. S2에서도 같은 이름으로 관측해야 합니다.' : 'S1에서 관측한 공통점을 같은 이름으로 관측해 입력하세요. 3점 이상 권장.'}</p>`}
+      ${rows ? `<ul class="list">${rows}</ul>` : `<p class="hint">${key === 'S1' ? 'S1에서 보이는 공통점(타겟)을 관측해 입력하세요. S2에서도 같은 이름으로 관측해야 합니다.' : 'S1에서 관측한 공통점을 같은 이름으로 관측해 입력하세요. 3점 이상 권장.'}</p>`}</div>
       <div class="row" style="margin-top:8px">
         <button class="primary grow" data-act="add" data-st="${key}" data-mode="polar">+ 관측값</button>
         <button class="grow" data-act="add" data-st="${key}" data-mode="coord">+ 좌표</button>
@@ -261,13 +261,30 @@ function updatePreview() {
     : `<span class="err">${esc(p.error)}</span>`;
 }
 
+const DRAFT_FIELDS = ['name', 'sd', 'ha', 'va', 'n', 'e', 'z'];
+const draftHasValues = (d) => DRAFT_FIELDS.some(k => String(d[k] ?? '').trim());
+
+function openObsSheet(station, draft, isNew) {
+  state.sheet = { type: 'obs', station, draft, isNew, orig: JSON.stringify(draft) };
+}
+
+// 입력한 내용이 있으면 확인 후 닫기
+function closeSheet() {
+  const sh = state.sheet;
+  if (sh && sh.type === 'obs' && JSON.stringify(sh.draft) !== sh.orig && !confirm('입력한 내용을 버릴까요?')) return;
+  state.sheet = null; renderSheet();
+}
+
+// 저장할 값이 없으면 false
 function saveDraft() {
   const sh = state.sheet;
+  if (!draftHasValues(sh.draft)) return false;
   const st = currentJob().stations[sh.station];
   const i = st.obs.findIndex(o => o.id === sh.draft.id);
   if (i >= 0) st.obs[i] = { ...sh.draft }; else st.obs.push({ ...sh.draft });
   currentJob().excluded = pruneExcluded(currentJob());
   persist();
+  return true;
 }
 
 function focusName() {
@@ -297,7 +314,7 @@ document.addEventListener('click', async (e) => {
   if (!t) return;
   const act = t.dataset.act;
   const job = currentJob();
-  if (act === 'close-bg') { if (e.target === t) { state.sheet = null; renderSheet(); } return; }
+  if (act === 'close-bg') { if (e.target === t) closeSheet(); return; }
   switch (act) {
     case 'new': {
       const name = prompt('작업 이름', `기선 ${today()}`);
@@ -322,19 +339,19 @@ document.addEventListener('click', async (e) => {
     case 'backup': download(`기선거리-백업-${today()}.json`, exportBackup(state.jobs), 'application/json'); break;
     case 'tab': state.tab = t.dataset.tab; render(); window.scrollTo(0, 0); break;
     case 'add':
-      state.sheet = { type: 'obs', station: t.dataset.st, draft: newObs(t.dataset.mode), isNew: true };
+      openObsSheet(t.dataset.st, newObs(t.dataset.mode), true);
       renderSheet(); focusName(); break;
     case 'edit': {
       const o = job.stations[t.dataset.st].obs.find(x => x.id === t.dataset.id);
-      state.sheet = { type: 'obs', station: t.dataset.st, draft: { ...o }, isNew: false };
+      openObsSheet(t.dataset.st, { ...o }, false);
       renderSheet(); break;
     }
     case 'mode': state.sheet.draft.mode = t.dataset.mode; renderSheet(); break;
     case 'save': saveDraft(); state.sheet = null; render(); break;
     case 'save-next': {
-      saveDraft();
+      if (!saveDraft()) { focusName(); break; }
       const { station, draft } = state.sheet;
-      state.sheet = { type: 'obs', station, draft: { ...newObs(draft.mode), ht: draft.ht }, isNew: true };
+      openObsSheet(station, { ...newObs(draft.mode), ht: draft.ht }, true);
       render(); focusName(); break;
     }
     case 'remove': {
@@ -344,7 +361,7 @@ document.addEventListener('click', async (e) => {
       job.excluded = pruneExcluded(job);
       state.sheet = null; persist(); render(); break;
     }
-    case 'close': state.sheet = null; renderSheet(); break;
+    case 'close': closeSheet(); break;
     case 'toggle': {
       const k = normName(t.dataset.name);
       const ex = new Set(job.excluded.map(normName));
@@ -379,6 +396,13 @@ document.addEventListener('change', async (e) => {
   const job = currentJob();
   if (t.dataset.set && job && t.tagName === 'SELECT') {
     job.settings[t.dataset.set] = t.value; persist(); render();
+  } else if (t.dataset.bind && job) {
+    // 기계고·기계점 좌표 변경 후 관측점 목록만 갱신 (입력 칸 포커스 유지)
+    const card = document.getElementById('obs-list');
+    const tmp = document.createElement('div');
+    tmp.innerHTML = stationView(job, t.dataset.st);
+    const fresh = tmp.querySelector('#obs-list');
+    if (card && fresh) card.replaceWith(fresh);
   } else if (t.dataset.act === 'restore' && t.files[0]) {
     const res = importBackup(await t.files[0].text());
     if (!res.ok) { alert(res.error); return; }
@@ -390,7 +414,7 @@ document.addEventListener('change', async (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && state.sheet) { state.sheet = null; renderSheet(); }
+  if (e.key === 'Escape' && state.sheet) closeSheet();
 });
 
 render();

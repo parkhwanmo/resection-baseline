@@ -178,3 +178,12 @@ test('pruneExcluded는 공통점이 아닌 제외 이름을 정리', () => {
   job.excluded = ['T2', 'GONE'];
   assert.deepEqual(pruneExcluded(job), ['T2']);
 });
+
+test('중복 점명의 마지막 값이 오류면 앞 값으로 대체하지 않음', () => {
+  const job = makeJob({ S1, S2, targets: T });
+  const last = { ...job.stations.S1.obs[1], id: 'bad-last', sd: '' };
+  job.stations.S1.obs.push(last);
+  const r = solve(job);
+  assert.equal(r.perStation.S1.find(p => p.id === job.stations.S1.obs[1].id).dup, true);
+  assert.equal(r.common.length, 4);
+});

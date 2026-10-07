@@ -98,7 +98,9 @@ export function importBackup(text) {
 }
 
 const cell = (v) => {
-  const s = String(v ?? '');
+  let s = String(v ?? '');
+  // 엑셀 수식 해석 방지 (숫자는 그대로)
+  if (/^[=+@\t\r]/.test(s) || (s.startsWith('-') && !/^-\d+(\.\d+)?$/.test(s))) s = "'" + s;
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 export const fmtFixed = (v, d) => { const s = v.toFixed(d); return /^-0\.0*$/.test(s) ? s.slice(1) : s; };

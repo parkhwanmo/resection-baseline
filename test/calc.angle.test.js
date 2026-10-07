@@ -55,3 +55,10 @@ test('parseNum: 쉼표 소수점, 선택 입력, 필수 입력', () => {
 test('normName은 공백 제거·대문자', () => {
   assert.equal(normName('  t1 '), 'T1');
 });
+
+test('구분자 표기에서 도·분이 소수면 오류', () => {
+  assert.equal(parseAngle('123.45-30', 'dms').ok, false);
+  assert.equal(parseAngle('123.5 30', 'dms').ok, false);
+  assert.equal(parseAngle('123 45.5 30', 'dms').ok, false);
+  assert.equal(parseAngle('123 45 30.5', 'dms').ok, true);
+});

@@ -3,7 +3,10 @@ const CACHE = 'rb-__VERSION__';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // HTTP 캐시를 거치지 않고 새로 받아 배포 직후에도 최신 파일을 캐시
+  e.waitUntil(caches.open(CACHE)
+    .then(c => c.addAll(FILES.map(u => new Request(u, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {

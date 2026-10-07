@@ -21,7 +21,7 @@ function parseDms(s) {
   let d, m, sec;
   const parts = s.split(/[\s-]+/).filter(Boolean);
   if (parts.length > 1) {
-    if (parts.length > 3 || !parts.every(p => NUM_RE.test(p))) return null;
+    if (parts.length > 3 || !parts.every((p, i) => (i < 2 ? /^\d+$/ : NUM_RE).test(p))) return null;
     [d, m = 0, sec = 0] = parts.map(Number);
   } else {
     if (!/^(\d+)(\.(\d*))?$/.test(s)) return null;
@@ -113,12 +113,14 @@ function stationPoints(station, settings) {
     const p = localPoint(o, station, settings);
     return { id: o.id, name: o.name, key: normName(o.name), ok: p.ok, error: p.ok ? null : p.error, dup: false, p };
   });
-  const map = new Map();
+  // 같은 점명은 마지막 항목만 사용 (마지막이 오류면 그 점은 계산에서 빠짐)
+  const last = new Map();
   for (const it of list) {
-    if (!it.ok || !it.key) continue;
-    if (map.has(it.key)) map.get(it.key).dup = true;
-    map.set(it.key, it);
+    if (!it.key) continue;
+    if (last.has(it.key)) last.get(it.key).dup = true;
+    last.set(it.key, it);
   }
+  const map = new Map([...last].filter(([, it]) => it.ok));
   return { list, map };
 }
 
